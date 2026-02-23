@@ -22,6 +22,8 @@ export class ApiKeyHeader extends LitElement {
         backCallback: { type: Function },
         llmError: { type: String },
         sttError: { type: String },
+        customBaseURL: { type: String },
+        customModels: { type: String },
     };
     //////// after_modelStateService ////////
 
@@ -72,7 +74,7 @@ export class ApiKeyHeader extends LitElement {
             border: none;
             border-radius: 5px;
             color: rgba(255, 255, 255, 0.7);
-            cursor: pointer;
+            cursor: default;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -99,7 +101,7 @@ export class ApiKeyHeader extends LitElement {
             align-items: center;
             gap: 4px;
             display: flex;
-            cursor: pointer;
+            cursor: default;
             transition: background-color 0.2s ease;
         }
         .back-button:hover {
@@ -142,23 +144,33 @@ export class ApiKeyHeader extends LitElement {
         }
         .provider-selector {
             display: flex;
-            width: 240px;
-            overflow: hidden;
+            width: 360px;
+            overflow-x: auto;
+            overflow-y: hidden;
             border-radius: 12px;
             border: 0.5px solid rgba(255, 255, 255, 0.5);
+            gap: 0;
+        }
+        .provider-selector::-webkit-scrollbar {
+            height: 3px;
+        }
+        .provider-selector::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
         }
         .provider-button {
             -webkit-app-region: no-drag;
-            padding: 4px 8px;
+            padding: 4px 12px;
             background: rgba(20.4, 20.4, 20.4, 0.32);
             color: #dcdcdc;
             font-size: 11px;
             font-weight: 450;
             letter-spacing: 0.11px;
             border: none;
-            cursor: pointer;
+            cursor: default;
             transition: background-color 0.2s ease;
-            flex: 1;
+            flex-shrink: 0;
+            white-space: nowrap;
         }
         .provider-button:hover {
             background: rgba(80, 80, 80, 0.48);
@@ -190,7 +202,7 @@ export class ApiKeyHeader extends LitElement {
             font-size: 12px;
             font-weight: 500;
             font-family: inherit;
-            cursor: pointer;
+            cursor: default;
             text-align: center;
             transition: background-color 0.2s ease;
         }
@@ -232,7 +244,7 @@ export class ApiKeyHeader extends LitElement {
             color: white;
             font-size: 12px;
             font-weight: 500;
-            cursor: pointer;
+            cursor: default;
             transition: background-color 0.2s ease;
         }
         .confirm-button:hover {
@@ -255,7 +267,7 @@ export class ApiKeyHeader extends LitElement {
         }
         .footer-link {
             text-decoration: underline;
-            cursor: pointer;
+            cursor: default;
             -webkit-app-region: no-drag;
         }
         .error-message,
@@ -348,6 +360,8 @@ export class ApiKeyHeader extends LitElement {
         this.backCallback = () => {};
         this.llmError = '';
         this.sttError = '';
+        this.customBaseURL = '';
+        this.customModels = '';
 
         // Professional operation management system
         this.activeOperations = new Map();
@@ -438,8 +452,8 @@ export class ApiKeyHeader extends LitElement {
             for (const id in config) {
                 // 'openai-glass' 같은 가상 Provider는 UI에 표시하지 않음
                 if (id.includes('-glass')) continue;
-                const hasLlmModels = config[id].llmModels.length > 0 || id === 'ollama';
-                const hasSttModels = config[id].sttModels.length > 0 || id === 'whisper';
+                const hasLlmModels = config[id].llmModels.length > 0 || id === 'ollama' || id === 'custom';
+                const hasSttModels = config[id].sttModels.length > 0 || id === 'whisper' || id === 'funasr';
 
                 if (hasLlmModels) {
                     llmProviders.push({ id, name: config[id].name });
@@ -1528,9 +1542,24 @@ export class ApiKeyHeader extends LitElement {
                     throw new Error('Please enter LLM API key');
                 }
 
+                const validateConfig = {};
+                if (this.llmProvider === 'custom') {
+                    if (!this.customBaseURL.trim()) {
+                        throw new Error('Please enter Base URL for custom API');
+                    }
+                    if (!this.customModels.trim()) {
+                        throw new Error('Please enter at least one model name');
+                    }
+                    validateConfig.baseURL = this.customBaseURL.trim();
+                    validateConfig.customModels = this.customModels.trim();
+                    // Use first model for validation
+                    validateConfig.testModel = this.customModels.split(',')[0].trim();
+                }
+
                 llmResult = await window.api.apiKeyHeader.validateKey({
                     provider: this.llmProvider,
                     key: this.llmApiKey.trim(),
+                    config: validateConfig,
                 });
 
                 if (llmResult.success) {
@@ -1540,6 +1569,13 @@ export class ApiKeyHeader extends LitElement {
                         await window.api.apiKeyHeader.setSelectedModel({
                             type: 'llm',
                             modelId: providerConfig.llmModels[0].id,
+                        });
+                    } else if (this.llmProvider === 'custom' && this.customModels.trim()) {
+                        // For custom provider, set first model as selected
+                        const firstModel = this.customModels.split(',')[0].trim();
+                        await window.api.apiKeyHeader.setSelectedModel({
+                            type: 'llm',
+                            modelId: firstModel,
                         });
                     }
                 }
@@ -1551,7 +1587,7 @@ export class ApiKeyHeader extends LitElement {
                 // Ollama doesn't support STT yet, so skip or use same as LLM validation
                 sttResult = { success: true };
             } else if (this.sttProvider === 'whisper') {
-                // For Whisper, just validate it's enabled (model download already handled in handleSttModelChange)
+                // For Whisper, validate with local marker
                 sttResult = await window.api.apiKeyHeader.validateKey({
                     provider: 'whisper',
                     key: 'local',
@@ -1968,7 +2004,48 @@ export class ApiKeyHeader extends LitElement {
                         <div class="label">2. Enter API Key</div>
                         ${this.llmProvider === 'ollama'
                             ? this._renderOllamaStateUI()
-                            : html`
+                            : this.llmProvider === 'custom'
+                              ? html`
+                                    <div class="input-wrapper">
+                                        <input
+                                            type="text"
+                                            class="api-input"
+                                            placeholder="Base URL (e.g., https://api.example.com/v1)"
+                                            .value=${this.customBaseURL}
+                                            @input=${e => {
+                                                this.customBaseURL = e.target.value;
+                                                this.llmError = '';
+                                            }}
+                                            ?disabled=${this.isLoading}
+                                            style="margin-bottom: 8px;"
+                                        />
+                                        <input
+                                            type="text"
+                                            class="api-input"
+                                            placeholder="Models (comma-separated, e.g., gpt-4,claude-3)"
+                                            .value=${this.customModels}
+                                            @input=${e => {
+                                                this.customModels = e.target.value;
+                                                this.llmError = '';
+                                            }}
+                                            ?disabled=${this.isLoading}
+                                            style="margin-bottom: 8px;"
+                                        />
+                                        <input
+                                            type="password"
+                                            class="api-input ${this.llmError ? 'invalid' : ''}"
+                                            placeholder="Enter API Key"
+                                            .value=${this.llmApiKey}
+                                            @input=${e => {
+                                                this.llmApiKey = e.target.value;
+                                                this.llmError = '';
+                                            }}
+                                            ?disabled=${this.isLoading}
+                                        />
+                                        ${this.llmError ? html`<div class="inline-error-message">${this.llmError}</div>` : ''}
+                                    </div>
+                                `
+                              : html`
                                   <div class="input-wrapper">
                                       <input
                                           type="password"
@@ -2013,7 +2090,7 @@ export class ApiKeyHeader extends LitElement {
                                       STT not supported by Ollama
                                   </div>
                               `
-                            : this.sttProvider === 'whisper'
+                                                        : this.sttProvider === 'whisper'
                               ? html`
                                     <div class="input-wrapper">
                                         <select

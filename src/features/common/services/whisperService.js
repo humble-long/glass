@@ -70,10 +70,29 @@ class WhisperService extends EventEmitter {
             const platform = this.getPlatform();
             const checkCmd = platform === 'win32' ? 'where' : 'which';
             const { stdout } = await execAsync(`${checkCmd} ${command}`);
-            return stdout.trim();
+            const found = stdout.trim().split('\n')[0]?.trim();
+            if (found) return found;
         } catch (error) {
-            return null;
         }
+
+        if (this.getPlatform() === 'darwin') {
+            const fallbackPaths = {
+                brew: ['/opt/homebrew/bin/brew', '/usr/local/bin/brew'],
+                'whisper-cli': ['/opt/homebrew/bin/whisper-cli', '/usr/local/bin/whisper-cli'],
+                whisper: ['/opt/homebrew/bin/whisper', '/usr/local/bin/whisper']
+            };
+
+            const candidates = fallbackPaths[command] || [];
+            for (const candidate of candidates) {
+                try {
+                    await fsPromises.access(candidate, fs.constants.X_OK);
+                    return candidate;
+                } catch (error) {
+                }
+            }
+        }
+
+        return null;
     }
 
     async waitForService(checkFn, maxAttempts = 30, delayMs = 1000) {
@@ -415,7 +434,7 @@ class WhisperService extends EventEmitter {
         }
 
         console.log('[WhisperService] Installing whisper-cpp via Homebrew...');
-        await spawnAsync('brew', ['install', 'whisper-cpp']);
+        await spawnAsync(brewPath, ['install', 'whisper-cpp']);
         
         const whisperCliPath = await this.checkCommand('whisper-cli');
         if (whisperCliPath) {

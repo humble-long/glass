@@ -98,7 +98,10 @@ const LATEST_SCHEMA = {
             { name: 'is_active_llm', type: 'INTEGER DEFAULT 0' },
             { name: 'is_active_stt', type: 'INTEGER DEFAULT 0' },
             { name: 'created_at', type: 'INTEGER' },
-            { name: 'updated_at', type: 'INTEGER' }
+            { name: 'updated_at', type: 'INTEGER' },
+            { name: 'base_url', type: 'TEXT' },
+            { name: 'custom_config', type: 'TEXT' },
+            { name: 'custom_models_json', type: 'TEXT' }
         ],
         constraints: ['PRIMARY KEY (provider)']
     },

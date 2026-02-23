@@ -140,7 +140,7 @@ export class SummaryView extends LitElement {
             border-radius: 4px;
             background: transparent;
             transition: background-color 0.15s ease;
-            cursor: pointer;
+            cursor: default;
             word-wrap: break-word;
         }
 
@@ -162,7 +162,7 @@ export class SummaryView extends LitElement {
         }
 
         .request-item.clickable {
-            cursor: pointer;
+            cursor: default;
             transition: all 0.15s ease;
         }
         .request-item.clickable:hover {
@@ -179,7 +179,7 @@ export class SummaryView extends LitElement {
             padding: 6px 8px;
             border-radius: 4px;
             background: transparent;
-            cursor: pointer;
+            cursor: default;
             word-wrap: break-word;
             transition: all 0.15s ease;
         }

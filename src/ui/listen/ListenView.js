@@ -219,7 +219,7 @@ export class ListenView extends LitElement {
             border-radius: 5px;
             font-size: 11px;
             font-weight: 500;
-            cursor: pointer;
+            cursor: default;
             height: 24px;
             white-space: nowrap;
             transition: background-color 0.15s ease;
@@ -244,7 +244,7 @@ export class ListenView extends LitElement {
             box-shadow: none;
             padding: 4px;
             border-radius: 3px;
-            cursor: pointer;
+            cursor: default;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -445,6 +445,7 @@ export class ListenView extends LitElement {
         this.copyTimeout = null;
 
         this.adjustWindowHeight = this.adjustWindowHeight.bind(this);
+        this.handleRequestShowInsights = this.handleRequestShowInsights.bind(this);
     }
 
     connectedCallback() {
@@ -618,6 +619,13 @@ export class ListenView extends LitElement {
         this.adjustWindowHeightThrottled();
     }
 
+    handleRequestShowInsights() {
+        if (this.viewMode !== 'insights') {
+            this.viewMode = 'insights';
+            this.requestUpdate();
+        }
+    }
+
     firstUpdated() {
         super.firstUpdated();
         setTimeout(() => this.adjustWindowHeight(), 200);
@@ -676,6 +684,7 @@ export class ListenView extends LitElement {
                 <stt-view 
                     .isVisible=${this.viewMode === 'transcript'}
                     @stt-messages-updated=${this.handleSttMessagesUpdated}
+                    @request-show-insights=${this.handleRequestShowInsights}
                 ></stt-view>
 
                 <summary-view 

@@ -7,6 +7,7 @@ const { getStoredApiKey, getStoredProvider, windowPool } = require('../../window
 // New imports for common services
 const modelStateService = require('../common/services/modelStateService');
 const localAIManager = require('../common/services/localAIManager');
+const providerSettingsRepository = require('../common/repositories/providerSettings');
 
 const store = new Store({
     name: 'pickle-glass-settings',
@@ -66,6 +67,99 @@ async function ensureOllamaReady() {
 
 async function shutdownOllama() {
     return localAIManager.stopService('ollama');
+}
+
+function parseCustomModels(rawValue) {
+    if (!rawValue) return [];
+
+    try {
+        const parsed = JSON.parse(rawValue);
+        if (Array.isArray(parsed)) {
+            return parsed.filter(model => typeof model === 'string' && model.trim());
+        }
+        if (typeof parsed === 'string' && parsed.trim()) {
+            return [parsed.trim()];
+        }
+    } catch (e) {
+        if (typeof rawValue === 'string' && rawValue.trim()) {
+            return [rawValue.trim()];
+        }
+    }
+
+    return [];
+}
+
+async function addCustomModel(provider, modelName) {
+    try {
+        console.log(`[SettingsService] Adding custom model ${modelName} to provider ${provider}`);
+        
+        // Get current provider settings
+        const settings = await providerSettingsRepository.getByProvider(provider);
+        if (!settings) {
+            throw new Error(`Provider ${provider} not found`);
+        }
+        
+        // Parse existing custom models
+        let customModels = parseCustomModels(settings.custom_models_json);
+        
+        // Check if model already exists
+        if (customModels.includes(modelName)) {
+            console.log(`[SettingsService] Model ${modelName} already exists`);
+            return { success: true, alreadyExists: true };
+        }
+        
+        // Add new model
+        customModels.push(modelName);
+        
+        // Update provider settings
+        await providerSettingsRepository.upsert(provider, {
+            ...settings,
+            custom_models_json: JSON.stringify(customModels)
+        });
+        
+        console.log(`[SettingsService] Successfully added custom model ${modelName}`);
+        
+        // Notify settings updated
+        modelStateService.emit('settings-updated');
+        
+        return { success: true };
+    } catch (error) {
+        console.error('[SettingsService] Error adding custom model:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+async function removeCustomModel(provider, modelName) {
+    try {
+        console.log(`[SettingsService] Removing custom model ${modelName} from provider ${provider}`);
+
+        const settings = await providerSettingsRepository.getByProvider(provider);
+        if (!settings) {
+            throw new Error(`Provider ${provider} not found`);
+        }
+
+        let customModels = parseCustomModels(settings.custom_models_json);
+
+        const nextModels = customModels.filter(m => m !== modelName);
+        const nextSettings = {
+            ...settings,
+            custom_models_json: JSON.stringify(nextModels)
+        };
+
+        if (settings.selected_llm_model === modelName) {
+            nextSettings.selected_llm_model = null;
+        }
+
+        await providerSettingsRepository.upsert(provider, nextSettings);
+
+        modelStateService.emit('state-updated', await modelStateService.getLiveState());
+        modelStateService.emit('settings-updated');
+
+        return { success: true };
+    } catch (error) {
+        console.error('[SettingsService] Error removing custom model:', error);
+        return { success: false, error: error.message };
+    }
 }
 
 
@@ -175,6 +269,7 @@ const DEFAULT_KEYBINDS = {
         toggleClickThrough: 'Cmd+M',
         nextStep: 'Cmd+Enter',
         manualScreenshot: 'Cmd+Shift+S',
+        clearScreenshots: 'Cmd+Shift+D',
         previousResponse: 'Cmd+[',
         nextResponse: 'Cmd+]',
         scrollUp: 'Cmd+Shift+Up',
@@ -189,6 +284,7 @@ const DEFAULT_KEYBINDS = {
         toggleClickThrough: 'Ctrl+M',
         nextStep: 'Ctrl+Enter',
         manualScreenshot: 'Ctrl+Shift+S',
+        clearScreenshots: 'Ctrl+Shift+D',
         previousResponse: 'Ctrl+[',
         nextResponse: 'Ctrl+]',
         scrollUp: 'Ctrl+Shift+Up',
@@ -203,7 +299,7 @@ function getDefaultSettings() {
     const isMac = process.platform === 'darwin';
     return {
         profile: 'school',
-        language: 'en',
+        language: 'zh',
         screenshotInterval: '5000',
         imageQuality: '0.8',
         layoutMode: 'stacked',
@@ -460,6 +556,8 @@ module.exports = {
     getModelSettings,
     clearApiKey,
     setSelectedModel,
+    addCustomModel,
+    removeCustomModel,
     // Ollama facade
     getOllamaStatus,
     ensureOllamaReady,

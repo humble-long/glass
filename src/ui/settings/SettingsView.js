@@ -178,7 +178,7 @@ export class SettingsView extends LitElement {
             padding: 5px 10px;
             font-size: 11px;
             font-weight: 400;
-            cursor: pointer;
+            cursor: default;
             transition: all 0.15s ease;
             display: flex;
             align-items: center;
@@ -268,7 +268,7 @@ export class SettingsView extends LitElement {
         .preset-toggle {
             font-size: 10px;
             color: rgba(255, 255, 255, 0.6);
-            cursor: pointer;
+            cursor: default;
             padding: 2px 4px;
             border-radius: 2px;
             transition: background-color 0.15s ease;
@@ -293,7 +293,7 @@ export class SettingsView extends LitElement {
             padding: 4px 6px;
             background: rgba(255, 255, 255, 0.05);
             border-radius: 3px;
-            cursor: pointer;
+            cursor: default;
             transition: all 0.15s ease;
             font-size: 11px;
             border: 1px solid transparent;
@@ -341,7 +341,7 @@ export class SettingsView extends LitElement {
         .no-presets-message .web-link {
             color: rgba(0, 122, 255, 0.8);
             text-decoration: underline;
-            cursor: pointer;
+            cursor: default;
         }
 
         .no-presets-message .web-link:hover {
@@ -408,7 +408,7 @@ export class SettingsView extends LitElement {
             padding: 5px 8px; 
             font-size: 11px; 
             border-radius: 3px; 
-            cursor: pointer; 
+            cursor: default; 
             transition: background-color 0.15s; 
             display: flex; 
             justify-content: space-between; 
@@ -416,6 +416,11 @@ export class SettingsView extends LitElement {
         }
         .model-item:hover { background-color: rgba(255,255,255,0.1); }
         .model-item.selected { background-color: rgba(0, 122, 255, 0.4); font-weight: 500; }
+        .model-item-right {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
         .model-status { 
             font-size: 9px; 
             color: rgba(255,255,255,0.6); 
@@ -441,7 +446,7 @@ export class SettingsView extends LitElement {
         select.model-dropdown {
             background: rgba(0,0,0,0.2);
             color: white;
-            cursor: pointer;
+            cursor: default;
         }
         
         select.model-dropdown option {
@@ -451,6 +456,91 @@ export class SettingsView extends LitElement {
         
         select.model-dropdown option:disabled {
             color: rgba(255,255,255,0.4);
+        }
+
+        /* Custom model input styles */
+        .custom-model-section {
+            margin-top: 2px;
+        }
+        .model-item.add-custom {
+            color: rgba(76, 175, 80, 0.9);
+            font-size: 11px;
+            cursor: default;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .model-item.add-custom:hover {
+            background-color: rgba(76, 175, 80, 0.15);
+        }
+        .custom-model-input-wrapper {
+            padding: 6px;
+            background: rgba(255, 255, 255, 0.02);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .custom-model-input {
+            width: 100%;
+            padding: 6px 8px;
+            font-size: 11px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            color: white;
+            margin-bottom: 6px;
+        }
+        .custom-model-input:focus {
+            outline: none;
+            border-color: rgba(0, 122, 255, 0.6);
+        }
+        .custom-model-input:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .custom-model-actions {
+            display: flex;
+            gap: 4px;
+        }
+        .custom-model-btn {
+            flex: 1;
+            padding: 4px 8px;
+            font-size: 10px;
+            border: none;
+            border-radius: 3px;
+            cursor: default;
+            transition: all 0.15s;
+        }
+        .custom-model-btn.add {
+            background: rgba(76, 175, 80, 0.3);
+            color: rgba(255, 255, 255, 0.9);
+        }
+        .custom-model-btn.add:hover:not(:disabled) {
+            background: rgba(76, 175, 80, 0.5);
+        }
+        .custom-model-btn.cancel {
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.7);
+        }
+        .custom-model-btn.cancel:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.15);
+        }
+        .custom-model-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .model-delete-btn {
+            background: rgba(255, 80, 80, 0.2);
+            color: rgba(255, 170, 170, 0.95);
+            border: 1px solid rgba(255, 120, 120, 0.25);
+            border-radius: 3px;
+            font-size: 10px;
+            line-height: 1;
+            padding: 3px 6px;
+            cursor: default;
+        }
+        .model-delete-btn:hover:not(:disabled) {
+            background: rgba(255, 80, 80, 0.35);
+        }
+        .model-delete-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
             
         /* ────────────────[ GLASS BYPASS ]─────────────── */
@@ -505,6 +595,9 @@ export class SettingsView extends LitElement {
         installingModels: { type: Object, state: true },
         // Whisper related properties
         whisperModels: { type: Array, state: true },
+        // Custom model input
+        showCustomModelInput: { type: Boolean, state: true },
+        customModelName: { type: String, state: true },
     };
     //////// after_modelStateService ////////
 
@@ -535,8 +628,15 @@ export class SettingsView extends LitElement {
         this.whisperModels = [];
         this.whisperProgressTracker = null; // Will be initialized when needed
         this.handleUsePicklesKey = this.handleUsePicklesKey.bind(this)
+        this.toggleCustomModelInput = this.toggleCustomModelInput.bind(this);
+        this.addCustomModel = this.addCustomModel.bind(this);
+        this.handleCustomModelKeydown = this.handleCustomModelKeydown.bind(this);
+        this.handleRemoveCustomModel = this.handleRemoveCustomModel.bind(this);
         this.autoUpdateEnabled = true;
         this.autoUpdateLoading = true;
+        // Custom model input
+        this.showCustomModelInput = false;
+        this.customModelName = '';
         this.loadInitialData();
         //////// after_modelStateService ////////
     }
@@ -694,7 +794,7 @@ export class SettingsView extends LitElement {
             this.saving = false;
             return;
         }
-        
+
         // For other providers, use the normal flow
         this.saving = true;
         const result = await window.api.settingsView.validateKey({ provider, key });
@@ -780,6 +880,122 @@ export class SettingsView extends LitElement {
         this.isSttListVisible = false;
         this.saving = false;
         this.requestUpdate();
+    }
+    
+    toggleCustomModelInput() {
+        this.showCustomModelInput = !this.showCustomModelInput;
+        if (this.showCustomModelInput) {
+            this.customModelName = '';
+            // Focus input after render
+            this.updateComplete.then(() => {
+                const input = this.shadowRoot.querySelector('.custom-model-input');
+                if (input) input.focus();
+            });
+        }
+    }
+
+    async addCustomModel() {
+        const modelName = this.customModelName.trim();
+        if (!modelName) {
+            console.warn('[SettingsView] Model name is empty');
+            return;
+        }
+
+        // Find which provider supports custom models (siliconflow or custom)
+        const provider = this.getProviderForCustomModel();
+        if (!provider) {
+            console.error('[SettingsView] No provider found that supports custom models');
+            return;
+        }
+
+        this.saving = true;
+        try {
+            await window.api.settingsView.addCustomModel(provider, modelName);
+            
+            // Refresh model data to show the new model
+            await this.refreshModelData();
+            
+            // Select the newly added model
+            const newModel = this.availableLlmModels.find(m => m.id === modelName);
+            if (newModel) {
+                await this.selectModel('llm', modelName);
+            }
+            
+            this.showCustomModelInput = false;
+            this.customModelName = '';
+        } catch (error) {
+            console.error('[SettingsView] Failed to add custom model:', error);
+        } finally {
+            this.saving = false;
+        }
+    }
+
+    getProviderForCustomModel() {
+        // Check if siliconflow or custom provider is available and has an API key
+        const siliconflow = this.providerConfig['siliconflow'];
+        const custom = this.providerConfig['custom'];
+        
+        if (siliconflow && this.apiKeys['siliconflow']) {
+            return 'siliconflow';
+        }
+        if (custom && this.apiKeys['custom']) {
+            return 'custom';
+        }
+        return null;
+    }
+
+    isBuiltInLlmModel(modelId) {
+        return Object.values(this.providerConfig || {}).some(config =>
+            (config.llmModels || []).some(model => model.id === modelId)
+        );
+    }
+
+    isCustomLlmModel(modelId) {
+        if (!modelId) return false;
+        if (this.isBuiltInLlmModel(modelId)) return false;
+        return !!this.getProviderForCustomModel();
+    }
+
+    async handleRemoveCustomModel(modelId, event) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+
+        if (!this.isCustomLlmModel(modelId)) {
+            return;
+        }
+
+        const provider = this.getProviderForCustomModel();
+        if (!provider) {
+            console.error('[SettingsView] No provider found for removing custom model');
+            return;
+        }
+
+        this.saving = true;
+        try {
+            await window.api.settingsView.removeCustomModel(provider, modelId);
+            if (this.selectedLlm === modelId) {
+                this.selectedLlm = null;
+            }
+            await this.refreshModelData();
+        } catch (error) {
+            console.error('[SettingsView] Failed to remove custom model:', error);
+        } finally {
+            this.saving = false;
+            this.requestUpdate();
+        }
+    }
+
+    handleCustomModelKeydown(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            this.addCustomModel();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            this.showCustomModelInput = false;
+            this.customModelName = '';
+        }
     }
     
     async refreshOllamaStatus() {
@@ -1060,6 +1276,8 @@ export class SettingsView extends LitElement {
         return [
             { name: 'Show / Hide', accelerator: this.shortcuts.toggleVisibility },
             { name: 'Ask Anything', accelerator: this.shortcuts.nextStep },
+            { name: 'Capture Screenshot', accelerator: this.shortcuts.manualScreenshot },
+            { name: 'Clear Screenshots', accelerator: this.shortcuts.clearScreenshots },
             { name: 'Scroll Up Response', accelerator: this.shortcuts.scrollUp },
             { name: 'Scroll Down Response', accelerator: this.shortcuts.scrollDown },
         ];
@@ -1286,25 +1504,71 @@ export class SettingsView extends LitElement {
                                 const ollamaModel = isOllama ? this.ollamaModels.find(m => m.name === model.id) : null;
                                 const isInstalling = this.installingModels[model.id] !== undefined;
                                 const installProgress = this.installingModels[model.id] || 0;
+                                const isCustomLlmModel = this.isCustomLlmModel(model.id);
                                 
                                 return html`
                                     <div class="model-item ${this.selectedLlm === model.id ? 'selected' : ''}" 
                                          @click=${() => this.selectModel('llm', model.id)}>
                                         <span>${model.name}</span>
-                                        ${isOllama ? html`
-                                            ${isInstalling ? html`
-                                                <div class="install-progress">
-                                                    <div class="install-progress-bar" style="width: ${installProgress}%"></div>
-                                </div>
-                                            ` : ollamaModel?.installed ? html`
-                                                <span class="model-status installed">✓ Installed</span>
-                                            ` : html`
-                                                <span class="model-status not-installed">Click to install</span>
-                                            `}
-                                        ` : ''}
+                                        <div class="model-item-right">
+                                            ${isOllama ? html`
+                                                ${isInstalling ? html`
+                                                    <div class="install-progress">
+                                                        <div class="install-progress-bar" style="width: ${installProgress}%"></div>
+                                                    </div>
+                                                ` : ollamaModel?.installed ? html`
+                                                    <span class="model-status installed">✓ Installed</span>
+                                                ` : html`
+                                                    <span class="model-status not-installed">Click to install</span>
+                                                `}
+                                            ` : ''}
+                                            ${isCustomLlmModel ? html`
+                                                <button
+                                                    class="model-delete-btn"
+                                                    title="删除自定义模型"
+                                                    @click=${(e) => this.handleRemoveCustomModel(model.id, e)}
+                                                    ?disabled=${this.saving}
+                                                >删除</button>
+                                            ` : ''}
+                                        </div>
                                     </div>
                                 `;
                             })}
+                            ${this.getProviderForCustomModel() ? html`
+                                <div class="custom-model-section">
+                                    ${this.showCustomModelInput ? html`
+                                        <div class="custom-model-input-wrapper">
+                                            <input 
+                                                type="text" 
+                                                class="custom-model-input"
+                                                placeholder="输入模型名称 (如: Qwen/Qwen2-VL-7B)"
+                                                .value=${this.customModelName}
+                                                @input=${(e) => this.customModelName = e.target.value}
+                                                @keydown=${this.handleCustomModelKeydown}
+                                                ?disabled=${this.saving}
+                                            />
+                                            <div class="custom-model-actions">
+                                                <button 
+                                                    class="custom-model-btn add"
+                                                    @click=${this.addCustomModel}
+                                                    ?disabled=${this.saving || !this.customModelName.trim()}>
+                                                    添加
+                                                </button>
+                                                <button 
+                                                    class="custom-model-btn cancel"
+                                                    @click=${() => { this.showCustomModelInput = false; this.customModelName = ''; }}
+                                                    ?disabled=${this.saving}>
+                                                    取消
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ` : html`
+                                        <div class="model-item add-custom" @click=${this.toggleCustomModelInput}>
+                                            <span>+ 添加自定义模型</span>
+                                        </div>
+                                    `}
+                                </div>
+                            ` : ''}
                         </div>
                     ` : ''}
                 </div>

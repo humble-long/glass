@@ -14,6 +14,7 @@ export class AskView extends LitElement {
         headerText: { type: String },
         headerAnimating: { type: Boolean },
         isStreaming: { type: Boolean },
+        screenshotCount: { type: Number },
     };
 
     static styles = css`
@@ -299,7 +300,7 @@ export class AskView extends LitElement {
             border: 1px solid rgba(255, 255, 255, 0.2);
             padding: 4px;
             border-radius: 3px;
-            cursor: pointer;
+            cursor: default;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -347,7 +348,7 @@ export class AskView extends LitElement {
             outline: 1px rgba(255, 255, 255, 0.3) solid;
             outline-offset: -1px;
             backdrop-filter: blur(0.5px);
-            cursor: pointer;
+            cursor: default;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -457,7 +458,7 @@ export class AskView extends LitElement {
             border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 3px;
             padding: 2px;
-            cursor: pointer;
+            cursor: default;
             opacity: 0;
             transition: opacity 0.15s ease, background-color 0.15s ease;
             display: flex;
@@ -655,7 +656,7 @@ export class AskView extends LitElement {
             font-family: 'Helvetica Neue', sans-serif;
             font-weight: 500;
             overflow: hidden;
-            cursor: pointer;
+            cursor: default;
             transition: background 0.15s;
             height: 32px;
             padding: 0 10px;
@@ -690,7 +691,7 @@ export class AskView extends LitElement {
             display: flex;
             align-items: center;
             gap: 2px;
-            cursor: pointer;
+            cursor: default;
             padding: 0 2px;
         }
         .header-clear-btn .icon-box {
@@ -709,6 +710,64 @@ export class AskView extends LitElement {
         .header-clear-btn:hover .icon-box {
             background-color: rgba(255,255,255,0.18);
         }
+
+        /* Screenshot Controls */
+        .screenshot-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        .screenshot-controls.hidden {
+            display: none;
+        }
+        .screenshot-info {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+        }
+        .screenshot-count {
+            font-weight: 500;
+        }
+        .screenshot-actions {
+            display: flex;
+            gap: 6px;
+        }
+        .screenshot-btn {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            background: rgba(255, 255, 255, 0.08);
+            border: none;
+            border-radius: 6px;
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 11px;
+            font-weight: 500;
+            cursor: default;
+            transition: all 0.15s;
+        }
+        .screenshot-btn:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.15);
+        }
+        .screenshot-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .screenshot-btn svg {
+            flex-shrink: 0;
+        }
+        .capture-btn {
+            background: rgba(76, 175, 80, 0.2);
+        }
+        .capture-btn:hover:not(:disabled) {
+            background: rgba(76, 175, 80, 0.3);
+        }
+        .clear-btn span {
+            color: rgba(255, 100, 100, 0.9);
+        }
     `;
 
     constructor() {
@@ -721,6 +780,7 @@ export class AskView extends LitElement {
         this.headerText = 'AI Response';
         this.headerAnimating = false;
         this.isStreaming = false;
+        this.screenshotCount = 0;
 
         this.marked = null;
         this.hljs = null;
@@ -742,6 +802,7 @@ export class AskView extends LitElement {
         this.handleCloseIfNoContent = this.handleCloseIfNoContent.bind(this);
 
         this.loadLibraries();
+        this.updateScreenshotCount();
 
         // --- Resize helpers ---
         this.isThrottled = false;
@@ -791,6 +852,9 @@ export class AskView extends LitElement {
                 this.currentQuestion = newState.currentQuestion;
                 this.isLoading       = newState.isLoading;
                 this.isStreaming     = newState.isStreaming;
+                if (typeof newState.screenshotCount === 'number') {
+                    this.screenshotCount = newState.screenshotCount;
+                }
               
                 const wasHidden = !this.showTextInput;
                 this.showTextInput = newState.showTextInput;
@@ -1298,6 +1362,43 @@ export class AskView extends LitElement {
         }
     }
 
+    async handleCaptureScreenshot() {
+        if (window.api && window.api.askView.captureScreenshot) {
+            try {
+                const result = await window.api.askView.captureScreenshot();
+                if (result.success) {
+                    await this.updateScreenshotCount();
+                    console.log('Screenshot captured:', result.message);
+                }
+            } catch (error) {
+                console.error('Error capturing screenshot:', error);
+            }
+        }
+    }
+
+    async updateScreenshotCount() {
+        if (window.api && window.api.askView.getScreenshotCount) {
+            try {
+                this.screenshotCount = await window.api.askView.getScreenshotCount();
+                this.requestUpdate();
+            } catch (error) {
+                console.error('Error getting screenshot count:', error);
+            }
+        }
+    }
+
+    async handleClearScreenshots() {
+        if (window.api && window.api.askView.clearScreenshots) {
+            try {
+                const result = await window.api.askView.clearScreenshots();
+                await this.updateScreenshotCount();
+                console.log('Screenshots cleared:', result.message);
+            } catch (error) {
+                console.error('Error clearing screenshots:', error);
+            }
+        }
+    }
+
     updated(changedProperties) {
         super.updated(changedProperties);
     
@@ -1380,6 +1481,33 @@ export class AskView extends LitElement {
                     <!-- Content is dynamically generated in updateResponseContent() -->
                 </div>
 
+                <!-- Screenshot Controls -->
+                <div class="screenshot-controls ${!this.showTextInput ? 'hidden' : ''}">
+                    <div class="screenshot-info">
+                        <span class="screenshot-count">${this.screenshotCount} 张截图</span>
+                    </div>
+                    <div class="screenshot-actions">
+                        <button class="screenshot-btn capture-btn" @click=${this.handleCaptureScreenshot} title="截图">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                                <circle cx="12" cy="13" r="4"/>
+                            </svg>
+                            <span>截图</span>
+                        </button>
+                        <button 
+                            class="screenshot-btn clear-btn" 
+                            @click=${this.handleClearScreenshots}
+                            ?disabled=${this.screenshotCount === 0}
+                            title="清除截图">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"/>
+                                <line x1="6" y1="6" x2="18" y2="18"/>
+                            </svg>
+                            <span>清除</span>
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Text Input Container -->
                 <div class="text-input-container ${!hasResponse ? 'no-response' : ''} ${!this.showTextInput ? 'hidden' : ''}">
                     <input
@@ -1410,15 +1538,17 @@ export class AskView extends LitElement {
         this.updateComplete.then(() => {
             const headerEl = this.shadowRoot.querySelector('.response-header');
             const responseEl = this.shadowRoot.querySelector('.response-container');
+            const screenshotControlsEl = this.shadowRoot.querySelector('.screenshot-controls');
             const inputEl = this.shadowRoot.querySelector('.text-input-container');
 
             if (!headerEl || !responseEl) return;
 
             const headerHeight = headerEl.classList.contains('hidden') ? 0 : headerEl.offsetHeight;
             const responseHeight = responseEl.scrollHeight;
+            const screenshotControlsHeight = (screenshotControlsEl && !screenshotControlsEl.classList.contains('hidden')) ? screenshotControlsEl.offsetHeight : 0;
             const inputHeight = (inputEl && !inputEl.classList.contains('hidden')) ? inputEl.offsetHeight : 0;
 
-            const idealHeight = headerHeight + responseHeight + inputHeight;
+            const idealHeight = headerHeight + responseHeight + screenshotControlsHeight + inputHeight;
 
             const targetHeight = Math.min(700, idealHeight);
 

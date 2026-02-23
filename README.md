@@ -69,6 +69,7 @@ npm run setup
 **Currently Supporting:**
 - OpenAI API: Get OpenAI API Key [here](https://platform.openai.com/api-keys)
 - Gemini API: Get Gemini API Key [here](https://aistudio.google.com/apikey)
+- DashScope FunASR API: Get API Key [here](https://help.aliyun.com/zh/model-studio/get-api-key)
 - Local LLM Ollama & Whisper
 
 ### Liquid Glass Design (coming soon)

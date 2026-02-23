@@ -66,7 +66,7 @@ export class PermissionHeader extends LitElement {
             border: none;
             border-radius: 3px;
             color: rgba(255, 255, 255, 0.7);
-            cursor: pointer;
+            cursor: default;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -162,7 +162,7 @@ export class PermissionHeader extends LitElement {
             color: white;
             font-size: 12px;
             font-weight: 500;
-            cursor: pointer;
+            cursor: default;
             transition: background 0.15s ease;
             position: relative;
             overflow: hidden;
@@ -204,7 +204,7 @@ export class PermissionHeader extends LitElement {
             color: white;
             font-size: 12px;
             font-weight: 500;
-            cursor: pointer;
+            cursor: default;
             transition: background 0.15s ease;
             position: relative;
             overflow: hidden;

@@ -93,6 +93,28 @@ const PROVIDERS = {
           { id: 'whisper-medium', name: 'Whisper Medium (769M)' },
       ],
   },
+  'funasr': {
+      name: 'FunASR (DashScope)',
+      handler: () => require("./providers/funasr"),
+      llmModels: [],
+      sttModels: [
+          { id: 'fun-asr-realtime', name: 'FunASR Realtime (Aliyun)' },
+      ],
+  },
+  'siliconflow': {
+      name: 'SiliconFlow (硅基流动)',
+      handler: () => require("./providers/siliconflow"),
+      llmModels: [
+          { id: 'Qwen/Qwen3-VL-32B-Instruct', name: 'Qwen3-VL-32B (视觉+文本)' },
+      ],
+      sttModels: [],
+  },
+  'custom': {
+      name: 'Custom API (自定义)',
+      handler: () => require("./providers/custom"),
+      llmModels: [], // Dynamic models from user config
+      sttModels: [],
+  },
 };
 
 function sanitizeModelId(model) {
@@ -158,7 +180,9 @@ function getProviderClass(providerId) {
         'gemini': 'GeminiProvider',
         'deepgram': 'DeepgramProvider',
         'ollama': 'OllamaProvider',
-        'whisper': 'WhisperProvider'
+        'whisper': 'WhisperProvider',
+        'funasr': 'FunASRProvider',
+        'siliconflow': 'SiliconFlowProvider'
     };
     
     const className = classNameMap[actualProviderId];

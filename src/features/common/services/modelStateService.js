@@ -104,8 +104,26 @@ class ModelStateService extends EventEmitter {
     async handleLocalAIStateChange(service, state) {
         console.log(`[ModelStateService] LocalAI state changed: ${service}`, state);
         if (!state.installed || !state.running) {
-            const types = service === 'ollama' ? ['llm'] : service === 'whisper' ? ['stt'] : [];
-            await this._autoSelectAvailableModels(types);
+            const selected = await this.getSelectedModels();
+            const types = [];
+
+            if (service === 'ollama') {
+                const llmProvider = selected.llm ? await this._resolveProviderForModel('llm', selected.llm) : null;
+                if (llmProvider === 'ollama') {
+                    types.push('llm');
+                }
+            }
+
+            if (service === 'whisper') {
+                const sttProvider = selected.stt ? this.getProviderForModel(selected.stt, 'stt') : null;
+                if (sttProvider === 'whisper') {
+                    types.push('stt');
+                }
+            }
+
+            if (types.length > 0) {
+                await this._autoSelectAvailableModels(types);
+            }
         }
         this.emit('state-updated', await this.getLiveState());
     }
@@ -138,7 +156,7 @@ class ModelStateService extends EventEmitter {
             const forceReselection = forceReselectionForTypes.includes(type);
 
             if (currentModelId && !forceReselection) {
-                const provider = this.getProviderForModel(currentModelId, type);
+                const provider = await this._resolveProviderForModel(type, currentModelId);
                 const apiKey = apiKeys[provider];
                 if (provider && apiKey) {
                     isCurrentModelValid = true;
@@ -149,10 +167,14 @@ class ModelStateService extends EventEmitter {
                 console.log(`[ModelStateService] No valid ${type.toUpperCase()} model selected or selection forced. Finding an alternative...`);
                 const availableModels = await this.getAvailableModels(type);
                 if (availableModels.length > 0) {
-                    const apiModel = availableModels.find(model => {
-                        const provider = this.getProviderForModel(model.id, type);
-                        return provider && provider !== 'ollama' && provider !== 'whisper';
-                    });
+                    let apiModel = null;
+                    for (const model of availableModels) {
+                        const provider = await this._resolveProviderForModel(type, model.id);
+                        if (provider && provider !== 'ollama' && provider !== 'whisper') {
+                            apiModel = model;
+                            break;
+                        }
+                    }
                     const newModel = apiModel || availableModels[0];
                     await this.setSelectedModel(type, newModel.id);
                     console.log(`[ModelStateService] Auto-selected ${type.toUpperCase()} model: ${newModel.id}`);
@@ -204,7 +226,7 @@ class ModelStateService extends EventEmitter {
         }
     }
 
-    async setApiKey(provider, key) {
+    async setApiKey(provider, key, config = {}) {
         console.log(`[ModelStateService] setApiKey for ${provider}`);
         if (!provider) {
             throw new Error('Provider is required');
@@ -212,7 +234,7 @@ class ModelStateService extends EventEmitter {
 
         // 'openai-glass'는 자체 인증 키를 사용하므로 유효성 검사를 건너뜁니다.
         if (provider !== 'openai-glass') {
-            const validationResult = await this.validateApiKey(provider, key);
+            const validationResult = await this.validateApiKey(provider, key, config);
             if (!validationResult.success) {
                 console.warn(`[ModelStateService] API key validation failed for ${provider}: ${validationResult.error}`);
                 return validationResult;
@@ -221,7 +243,15 @@ class ModelStateService extends EventEmitter {
 
         const finalKey = (provider === 'ollama' || provider === 'whisper') ? 'local' : key;
         const existingSettings = await providerSettingsRepository.getByProvider(provider) || {};
-        await providerSettingsRepository.upsert(provider, { ...existingSettings, api_key: finalKey });
+        const newSettings = { ...existingSettings, api_key: finalKey };
+        
+        // Store custom config for custom provider
+        if (provider === 'custom' && config) {
+            if (config.baseURL) newSettings.base_url = config.baseURL;
+            if (config.customModels) newSettings.custom_models_json = config.customModels;
+        }
+        
+        await providerSettingsRepository.upsert(provider, newSettings);
         
         // 키가 추가/변경되었으므로, 해당 provider의 모델을 자동 선택할 수 있는지 확인
         await this._autoSelectAvailableModels([]);
@@ -304,7 +334,7 @@ class ModelStateService extends EventEmitter {
     }
     
     async setSelectedModel(type, modelId) {
-        const provider = this.getProviderForModel(modelId, type);
+        const provider = await this._resolveProviderForModel(type, modelId);
         if (!provider) {
             console.warn(`[ModelStateService] No provider found for model ${modelId}`);
             return false;
@@ -333,6 +363,40 @@ class ModelStateService extends EventEmitter {
         return true;
     }
 
+    async _resolveProviderForModel(type, modelId) {
+        let provider = this.getProviderForModel(modelId, type);
+        if (!provider && type === 'llm') {
+            provider = await this._findCustomModelProvider(modelId);
+        }
+        return provider;
+    }
+
+    async _findCustomModelProvider(modelId) {
+        if (!modelId) return null;
+
+        const allSettings = await providerSettingsRepository.getAll();
+        for (const setting of allSettings) {
+            if (!setting.api_key || !setting.custom_models_json) continue;
+
+            try {
+                const parsed = JSON.parse(setting.custom_models_json);
+                const customModels = Array.isArray(parsed)
+                    ? parsed
+                    : (typeof parsed === 'string' && parsed.trim() ? [parsed.trim()] : []);
+                if (customModels.includes(modelId)) {
+                    return setting.provider;
+                }
+            } catch (error) {
+                if (typeof setting.custom_models_json === 'string' && setting.custom_models_json.trim() === modelId) {
+                    return setting.provider;
+                }
+                console.warn(`[ModelStateService] Failed parsing custom_models_json for ${setting.provider}:`, error?.message || error);
+            }
+        }
+
+        return null;
+    }
+
     async getAvailableModels(type) {
         const allSettings = await providerSettingsRepository.getAll();
         const available = [];
@@ -347,6 +411,26 @@ class ModelStateService extends EventEmitter {
                 available.push(...installed.map(m => ({ id: m.name, name: m.name })));
             } else if (PROVIDERS[providerId]?.[modelListKey]) {
                 available.push(...PROVIDERS[providerId][modelListKey]);
+
+                if (type === 'llm' && setting.custom_models_json) {
+                    try {
+                        const parsed = JSON.parse(setting.custom_models_json);
+                        const customModels = Array.isArray(parsed)
+                            ? parsed
+                            : (typeof parsed === 'string' && parsed.trim() ? [parsed.trim()] : []);
+                        if (customModels.length > 0) {
+                            available.push(...customModels
+                                .filter(modelName => typeof modelName === 'string' && modelName.trim())
+                                .map(modelName => ({ id: modelName, name: modelName })));
+                        }
+                    } catch (error) {
+                        if (typeof setting.custom_models_json === 'string' && setting.custom_models_json.trim()) {
+                            const modelName = setting.custom_models_json.trim();
+                            available.push({ id: modelName, name: modelName });
+                        }
+                        console.warn(`[ModelStateService] Failed to parse custom_models_json for ${providerId}:`, error?.message || error);
+                    }
+                }
             }
         }
         return [...new Map(available.map(item => [item.id, item])).values()];
@@ -368,7 +452,7 @@ class ModelStateService extends EventEmitter {
 
     // --- 핸들러 및 유틸리티 메서드 ---
 
-    async validateApiKey(provider, key) {
+    async validateApiKey(provider, key, config = {}) {
         if (!key || (key.trim() === '' && provider !== 'ollama' && provider !== 'whisper')) {
             return { success: false, error: 'API key cannot be empty.' };
         }
@@ -377,7 +461,7 @@ class ModelStateService extends EventEmitter {
             return { success: true };
         }
         try {
-            return await ProviderClass.validateApiKey(key);
+            return await ProviderClass.validateApiKey(key, config);
         } catch (error) {
             return { success: false, error: 'An unexpected error occurred during validation.' };
         }
@@ -404,8 +488,8 @@ class ModelStateService extends EventEmitter {
     }
 
     /*-------------- Compatibility Helpers --------------*/
-    async handleValidateKey(provider, key) {
-        return await this.setApiKey(provider, key);
+    async handleValidateKey(provider, key, config = {}) {
+        return await this.setApiKey(provider, key, config);
     }
 
     async handleSetSelectedModel(type, modelId) {

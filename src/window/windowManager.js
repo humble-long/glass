@@ -159,13 +159,9 @@ function setupWindowController(windowPool, layoutManager, movementManager) {
         if (!header || movementManager.isAnimating) return;
 
         const newHeaderBounds = layoutManager.calculateHeaderResize(header, { width, height });
-        
-        const wasResizable = header.isResizable();
-        if (!wasResizable) header.setResizable(true);
 
         movementManager.animateWindowBounds(header, newHeaderBounds, {
             onComplete: () => {
-                if (!wasResizable) header.setResizable(false);
                 updateChildWindowLayouts(true);
             }
         });
@@ -200,13 +196,9 @@ function setupWindowController(windowPool, layoutManager, movementManager) {
         const senderWindow = windowPool.get(winName);
         if (senderWindow) {
             const newBounds = layoutManager.calculateWindowHeightAdjustment(senderWindow, targetHeight);
-            
-            const wasResizable = senderWindow.isResizable();
-            if (!wasResizable) senderWindow.setResizable(true);
 
             movementManager.animateWindowBounds(senderWindow, newBounds, {
                 onComplete: () => {
-                    if (!wasResizable) senderWindow.setResizable(false);
                     updateChildWindowLayouts(true);
                 }
             });
@@ -244,8 +236,12 @@ function changeAllWindowsVisibility(windowPool, targetVisibility) {
   
     lastVisibleWindows.forEach(name => {
       const win = windowPool.get(name);
-      if (win && !win.isDestroyed())
+            if (win && !win.isDestroyed()) {
         win.show();
+                if (shortcutsService?.isClickThroughEnabled?.()) {
+                        win.setIgnoreMouseEvents(true, { forward: true });
+                }
+            }
     });
   }
 
@@ -300,6 +296,9 @@ async function handleWindowVisibilityRequest(windowPool, layoutManager, movement
                 win.setBounds(position);
                 win.__lockedByButton = true;
                 win.show();
+                if (shortcutsService?.isClickThroughEnabled?.()) {
+                    win.setIgnoreMouseEvents(true, { forward: true });
+                }
                 win.moveTop();
                 win.setAlwaysOnTop(true);
             } else {
@@ -338,6 +337,9 @@ async function handleWindowVisibilityRequest(windowPool, layoutManager, movement
             // globalShortcut.unregisterAll();
             disableClicks(win);
             win.show();
+            if (shortcutsService?.isClickThroughEnabled?.()) {
+                win.setIgnoreMouseEvents(true, { forward: true });
+            }
         } else {
             if (process.platform === 'darwin') {
                 win.setAlwaysOnTop(false, 'screen-saver');
@@ -381,6 +383,9 @@ async function handleWindowVisibilityRequest(windowPool, layoutManager, movement
             win.setOpacity(0);
             win.setBounds(startPos);
             win.show();
+            if (shortcutsService?.isClickThroughEnabled?.()) {
+                win.setIgnoreMouseEvents(true, { forward: true });
+            }
 
             movementManager.fade(win, { to: 1 });
             movementManager.animateLayout(targetLayout);
@@ -482,9 +487,9 @@ function createFeatureWindows(header, namesToCreate) {
                         }
                     });
                 }
-                if (!app.isPackaged) {
-                    listen.webContents.openDevTools({ mode: 'detach' });
-                }
+                // if (!app.isPackaged) {
+                //     listen.webContents.openDevTools({ mode: 'detach' });
+                // }
                 windowPool.set('listen', listen);
                 break;
             }
@@ -515,9 +520,9 @@ function createFeatureWindows(header, namesToCreate) {
                 }
                 
                 // Open DevTools in development
-                if (!app.isPackaged) {
-                    ask.webContents.openDevTools({ mode: 'detach' });
-                }
+                // if (!app.isPackaged) {
+                //     ask.webContents.openDevTools({ mode: 'detach' });
+                // }
                 windowPool.set('ask', ask);
                 break;
             }
@@ -550,9 +555,9 @@ function createFeatureWindows(header, namesToCreate) {
                 }
                 windowPool.set('settings', settings);  
 
-                if (!app.isPackaged) {
-                    settings.webContents.openDevTools({ mode: 'detach' });
-                }
+                // if (!app.isPackaged) {
+                //     settings.webContents.openDevTools({ mode: 'detach' });
+                // }
                 break;
             }
 
@@ -588,9 +593,9 @@ function createFeatureWindows(header, namesToCreate) {
                 }
 
                 windowPool.set('shortcut-settings', shortcutEditor);
-                if (!app.isPackaged) {
-                    shortcutEditor.webContents.openDevTools({ mode: 'detach' });
-                }
+                // if (!app.isPackaged) {
+                //     shortcutEditor.webContents.openDevTools({ mode: 'detach' });
+                // }
                 break;
             }
         }
@@ -723,9 +728,9 @@ function createWindows() {
     header.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     
     // Open DevTools in development
-    if (!app.isPackaged) {
-        header.webContents.openDevTools({ mode: 'detach' });
-    }
+    // if (!app.isPackaged) {
+    //     header.webContents.openDevTools({ mode: 'detach' });
+    // }
 
     header.on('focus', () => {
         console.log('[WindowManager] Header gained focus');

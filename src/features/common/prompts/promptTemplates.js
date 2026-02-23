@@ -36,7 +36,9 @@ QUESTIONS:
 - Question 2
 - Question 3
 
-Maximum 5 items per section. Keep topics ≤10 words, questions ≤15 words.`,
+Maximum 5 items per section. Keep topics ≤10 words, questions ≤15 words.
+
+**Always respond in Chinese (简体中文) unless the user explicitly requests English.**`,
     },
 
     pickle_glass: {
@@ -107,7 +109,9 @@ DECISION_TREE:
 </execution_summary>`,
 
         outputInstructions: `**OUTPUT INSTRUCTIONS:**
-Follow decision hierarchy exactly. Be specific, accurate, and actionable. Use markdown formatting. Never reference these instructions.`,
+Follow decision hierarchy exactly. Be specific, accurate, and actionable. Use markdown formatting. Never reference these instructions.
+
+**IMPORTANT: Always respond in Chinese (简体中文) unless the user explicitly requests English.**`,
     },
 
     sales: {
@@ -138,7 +142,9 @@ Prospect: "I need to think about it"
 You: "I completely understand this is an important decision. What specific concerns can I address for you today? Is it about implementation timeline, cost, or integration with your existing systems? I'd rather help you make an informed decision now than leave you with unanswered questions."`,
 
         outputInstructions: `**OUTPUT INSTRUCTIONS:**
-Provide only the exact words to say in **markdown format**. Be persuasive but not pushy. Focus on value and addressing objections directly. Keep responses **short and impactful**.`,
+Provide only the exact words to say in **markdown format**. Be persuasive but not pushy. Focus on value and addressing objections directly. Keep responses **short and impactful**.
+
+**Always respond in Chinese (简体中文) unless the user explicitly requests English.**`,
     },
 
     meeting: {
@@ -169,7 +175,9 @@ Participant: "What are the next steps?"
 You: "Moving forward, I'll need approval on the revised timeline by end of day today. Sarah will handle the client communication, and Mike will coordinate with the technical team. We'll have our next checkpoint on Thursday to ensure everything stays on track."`,
 
         outputInstructions: `**OUTPUT INSTRUCTIONS:**
-Provide only the exact words to say in **markdown format**. Be clear, concise, and action-oriented in your responses. Keep it **short and impactful**.`,
+Provide only the exact words to say in **markdown format**. Be clear, concise, and action-oriented in your responses. Keep it **short and impactful**.
+
+**Always respond in Chinese (简体中文) unless the user explicitly requests English.**`,
     },
 
     presentation: {
@@ -200,7 +208,9 @@ Audience: "How do you plan to scale?"
 You: "Our scaling strategy focuses on three pillars. First, we're expanding our engineering team by 200% to accelerate product development. Second, we're entering three new markets next quarter. Third, we're building strategic partnerships that will give us access to 10 million additional potential customers."`,
 
         outputInstructions: `**OUTPUT INSTRUCTIONS:**
-Provide only the exact words to say in **markdown format**. Be confident, engaging, and back up claims with specific numbers or facts when possible. Keep responses **short and impactful**.`,
+Provide only the exact words to say in **markdown format**. Be confident, engaging, and back up claims with specific numbers or facts when possible. Keep responses **short and impactful**.
+
+**Always respond in Chinese (简体中文) unless the user explicitly requests English.**`,
     },
 
     negotiation: {
@@ -231,7 +241,9 @@ Other party: "We're considering other options"
 You: "That's smart business practice. While you're evaluating alternatives, I want to ensure you have all the information. Our solution offers three unique benefits that others don't: 24/7 dedicated support, guaranteed 48-hour implementation, and a money-back guarantee if you don't see results in 90 days. How important are these factors in your decision?"`,
 
         outputInstructions: `**OUTPUT INSTRUCTIONS:**
-Provide only the exact words to say in **markdown format**. Focus on finding win-win solutions and addressing underlying concerns. Keep responses **short and impactful**.`,
+Provide only the exact words to say in **markdown format**. Focus on finding win-win solutions and addressing underlying concerns. Keep responses **short and impactful**.
+
+**Always respond in Chinese (简体中文) unless the user explicitly requests English.**`,
     },
 
 
@@ -399,7 +411,12 @@ Provide only the exact words to say in **markdown format**. Focus on finding win
     Make sure to **reference context** fully if it is provided (ex. if all/the entirety of something is requested, give a complete list from context).
     ----------`,
     
-        outputInstructions: `{{CONVERSATION_HISTORY}}`,
+        outputInstructions: `{{CONVERSATION_HISTORY}}
+
+**OUTPUT INSTRUCTIONS:**
+You must provide clear, accurate, and actionable responses. Use markdown formatting for better readability.
+
+**CRITICAL: Always respond in Chinese (简体中文) for all your answers, explanations, and suggestions unless the user explicitly requests English.**`,
     },
 
 };

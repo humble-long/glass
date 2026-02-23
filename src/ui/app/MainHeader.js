@@ -92,7 +92,7 @@ export class MainHeader extends LitElement {
             gap: 6px;
             display: flex;
             border: none;
-            cursor: pointer;
+            cursor: default;
             position: relative;
         }
 
@@ -268,7 +268,7 @@ export class MainHeader extends LitElement {
             transition: background 0.15s ease;
             color: white;
             border: none;
-            cursor: pointer;
+            cursor: default;
             display: flex;
             align-items: center;
             gap: 6px;

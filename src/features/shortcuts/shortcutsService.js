@@ -12,12 +12,38 @@ class ShortcutsService {
         this.allWindowVisibility = true;
     }
 
+    isClickThroughEnabled() {
+        return !!this.mouseEventsIgnored;
+    }
+
+    applyClickThroughStateToVisibleWindows() {
+        if (!this.windowPool) return;
+
+        this.windowPool.forEach((win, name) => {
+            if (!win || win.isDestroyed() || !win.isVisible()) return;
+
+            if (name === 'header') {
+                win.setIgnoreMouseEvents(false);
+                return;
+            }
+
+            win.setIgnoreMouseEvents(this.mouseEventsIgnored, { forward: true });
+        });
+
+        const header = this.windowPool.get('header');
+        if (header && !header.isDestroyed()) {
+            header.webContents.send('click-through-toggled', this.mouseEventsIgnored);
+        }
+    }
+
     initialize(windowPool) {
         this.windowPool = windowPool;
         internalBridge.on('reregister-shortcuts', () => {
             console.log('[ShortcutsService] Reregistering shortcuts due to header state change.');
             this.registerShortcuts();
         });
+        this.applyClickThroughStateToVisibleWindows();
+        console.log(`[ShortcutsService] Default click-through: ${this.mouseEventsIgnored ? 'ON' : 'OFF'}`);
         console.log('[ShortcutsService] Initialized with dependencies and event listener.');
     }
 
@@ -67,6 +93,7 @@ class ShortcutsService {
             toggleClickThrough: isMac ? 'Cmd+M' : 'Ctrl+M',
             nextStep: isMac ? 'Cmd+Enter' : 'Ctrl+Enter',
             manualScreenshot: isMac ? 'Cmd+Shift+S' : 'Ctrl+Shift+S',
+            clearScreenshots: isMac ? 'Cmd+Shift+D' : 'Ctrl+Shift+D',
             previousResponse: isMac ? 'Cmd+[' : 'Ctrl+[',
             nextResponse: isMac ? 'Cmd+]' : 'Ctrl+]',
             scrollUp: isMac ? 'Cmd+Shift+Up' : 'Ctrl+Shift+Up',
@@ -144,7 +171,6 @@ class ShortcutsService {
         globalShortcut.unregisterAll();
         
         const header = this.windowPool.get('header');
-        const mainWindow = header;
 
         const sendToRenderer = (channel, ...args) => {
             this.windowPool.forEach(win => {
@@ -159,6 +185,7 @@ class ShortcutsService {
         };
         
         sendToRenderer('shortcuts-updated', keybinds);
+        this.applyClickThroughStateToVisibleWindows();
 
         if (registerOnlyToggleVisibility) {
             if (keybinds.toggleVisibility) {
@@ -244,16 +271,23 @@ class ShortcutsService {
                 case 'toggleClickThrough':
                      callback = () => {
                         this.mouseEventsIgnored = !this.mouseEventsIgnored;
-                        if(mainWindow && !mainWindow.isDestroyed()){
-                            mainWindow.setIgnoreMouseEvents(this.mouseEventsIgnored, { forward: true });
-                            mainWindow.webContents.send('click-through-toggled', this.mouseEventsIgnored);
-                        }
+                        this.applyClickThroughStateToVisibleWindows();
+                                console.log(`[Shortcuts] Click-through toggled: ${this.mouseEventsIgnored ? 'ON' : 'OFF'} (main window excluded)`);
                      };
                      break;
                 case 'manualScreenshot':
                     callback = () => {
-                        if(mainWindow && !mainWindow.isDestroyed()) {
-                             mainWindow.webContents.executeJavaScript('window.captureManualScreenshot && window.captureManualScreenshot();');
+                        askService.captureScreenshotManually().catch(error => {
+                            console.error('[Shortcuts] Failed to capture screenshot via shortcut:', error);
+                        });
+                    };
+                    break;
+                case 'clearScreenshots':
+                    callback = () => {
+                        try {
+                            askService.clearScreenshots();
+                        } catch (error) {
+                            console.error('[Shortcuts] Failed to clear screenshots via shortcut:', error);
                         }
                     };
                     break;

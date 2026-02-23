@@ -51,6 +51,16 @@ export class SttView extends LitElement {
             box-sizing: border-box;
         }
 
+        .stt-message.final {
+            cursor: default;
+            transition: transform 0.12s ease, opacity 0.12s ease;
+        }
+
+        .stt-message.final:hover {
+            transform: translateY(-1px);
+            opacity: 0.92;
+        }
+
         .stt-message.them {
             background: rgba(255, 255, 255, 0.1);
             color: rgba(255, 255, 255, 0.9);
@@ -79,6 +89,7 @@ export class SttView extends LitElement {
     `;
 
     static properties = {
+
         sttMessages: { type: Array },
         isVisible: { type: Boolean },
     };
@@ -89,8 +100,10 @@ export class SttView extends LitElement {
         this.isVisible = true;
         this.messageIdCounter = 0;
         this._shouldScrollAfterUpdate = false;
+        this.generatingFromMessageId = null;
 
         this.handleSttUpdate = this.handleSttUpdate.bind(this);
+        this.handleMessageClick = this.handleMessageClick.bind(this);
     }
 
     connectedCallback() {
@@ -192,6 +205,32 @@ export class SttView extends LitElement {
         return this.sttMessages.map(msg => `${msg.speaker}: ${msg.text}`).join('\n');
     }
 
+    async handleMessageClick(message) {
+        if (!message || !message.isFinal || !message.text || !window.api?.sttView) {
+            return;
+        }
+
+        if (this.generatingFromMessageId === message.id) {
+            return;
+        }
+
+        this.generatingFromMessageId = message.id;
+        this.requestUpdate();
+
+        try {
+            if (window.api.sttView.sendQuestionFromTranscript) {
+                await window.api.sttView.sendQuestionFromTranscript(message.text);
+            } else if (window.api.sttView.answerFromTranscript) {
+                await window.api.sttView.answerFromTranscript(message.text);
+            }
+        } catch (error) {
+            console.error('[SttView] Failed to generate answer from transcript:', error);
+        } finally {
+            this.generatingFromMessageId = null;
+            this.requestUpdate();
+        }
+    }
+
     updated(changedProperties) {
         super.updated(changedProperties);
 
@@ -213,8 +252,12 @@ export class SttView extends LitElement {
                 ${this.sttMessages.length === 0
                     ? html`<div class="empty-state">Waiting for speech...</div>`
                     : this.sttMessages.map(msg => html`
-                        <div class="stt-message ${this.getSpeakerClass(msg.speaker)}">
+                        <div
+                            class="stt-message ${this.getSpeakerClass(msg.speaker)} ${msg.isFinal ? 'final' : ''}"
+                            @click=${() => this.handleMessageClick(msg)}
+                        >
                             ${msg.text}
+                            ${this.generatingFromMessageId === msg.id ? html`<span style="margin-left:6px; opacity:0.75;">发送中...</span>` : ''}
                         </div>
                     `)
                 }

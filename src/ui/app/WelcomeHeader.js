@@ -38,7 +38,7 @@ export class WelcomeHeader extends LitElement {
             border: none;
             border-radius: 5px;
             color: rgba(255, 255, 255, 0.7);
-            cursor: pointer;
+            cursor: default;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -118,7 +118,7 @@ export class WelcomeHeader extends LitElement {
             align-items: center;
             gap: 6px;
             display: flex;
-            cursor: pointer;
+            cursor: default;
             transition: background-color 0.2s;
         }
         .action-button:hover {
@@ -155,7 +155,7 @@ export class WelcomeHeader extends LitElement {
         }
         .footer-link {
             text-decoration: underline;
-            cursor: pointer;
+            cursor: default;
             -webkit-app-region: no-drag;
         }
     `;

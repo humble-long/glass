@@ -36,12 +36,27 @@ function upsert(provider, settings) {
     
     // Use SQLite's UPSERT syntax (INSERT ... ON CONFLICT ... DO UPDATE)
     const stmt = db.prepare(`
-        INSERT INTO provider_settings (provider, api_key, selected_llm_model, selected_stt_model, is_active_llm, is_active_stt, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO provider_settings (
+            provider,
+            api_key,
+            selected_llm_model,
+            selected_stt_model,
+            is_active_llm,
+            is_active_stt,
+            created_at,
+            updated_at,
+            base_url,
+            custom_config,
+            custom_models_json
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(provider) DO UPDATE SET
             api_key = excluded.api_key,
             selected_llm_model = excluded.selected_llm_model,
             selected_stt_model = excluded.selected_stt_model,
+            base_url = excluded.base_url,
+            custom_config = excluded.custom_config,
+            custom_models_json = excluded.custom_models_json,
             -- is_active_llm and is_active_stt are NOT updated here
             -- Use setActiveProvider() to change active status
             updated_at = excluded.updated_at
@@ -55,7 +70,10 @@ function upsert(provider, settings) {
         0, // is_active_llm - always 0, use setActiveProvider to activate
         0, // is_active_stt - always 0, use setActiveProvider to activate
         settings.created_at || Date.now(),
-        settings.updated_at
+        settings.updated_at,
+        settings.base_url || null,
+        settings.custom_config || null,
+        settings.custom_models_json || null
     );
     
     return { changes: result.changes };

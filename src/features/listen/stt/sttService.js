@@ -149,14 +149,62 @@ class SttService {
         this.theirCompletionTimer = setTimeout(() => this.flushTheirCompletion(), COMPLETION_DEBOUNCE_MS);
     }
 
-    async initializeSttSessions(language = 'en') {
-        const effectiveLanguage = process.env.OPENAI_TRANSCRIBE_LANG || language || 'en';
+    isWhisperNoiseText(text) {
+        if (!text || typeof text !== 'string') return true;
 
+        const normalized = text.trim().toLowerCase();
+        if (!normalized) return true;
+
+        const legacyNoiseTokens = [
+            '[blank_audio]',
+            '[inaudible]',
+            '[music]',
+            '[sound]',
+            '[noise]',
+            '(blank_audio)',
+            '(inaudible)',
+            '(music)',
+            '(sound)',
+            '(noise)'
+        ];
+
+        if (legacyNoiseTokens.some(token => normalized === token || normalized.includes(token))) {
+            return true;
+        }
+
+        const actionOnlyPattern = /^(?:[\s,.;:!?\-]*(?:\(|\[)?\s*(?:laugh(?:ing|s)?|cough(?:ing|s)?|cry(?:ing)?|sigh(?:ing|s)?|inaudible|noise|music|applause|breath(?:ing)?|sniff(?:ing|les?)?|sobbing|giggl(?:e|ing|es))\s*(?:\)|\])?)+[\s,.;:!?\-]*$/i;
+        if (actionOnlyPattern.test(normalized)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    async initializeSttSessions(language) {
         const modelInfo = await modelStateService.getCurrentModelInfo('stt');
         if (!modelInfo || !modelInfo.apiKey) {
             throw new Error('AI model or API key is not configured.');
         }
         this.modelInfo = modelInfo;
+
+        const normalizedInputLanguage = language
+            ? String(language).split('-')[0].toLowerCase()
+            : '';
+
+        let effectiveLanguage;
+        if (modelInfo.provider === 'whisper') {
+            // App-wide language default has historically been "en".
+            // For local Whisper we treat that default as "not explicitly configured"
+            // and force Chinese so Mandarin/Korean interviews are not mistranscribed.
+            effectiveLanguage = normalizedInputLanguage && normalizedInputLanguage !== 'en'
+                ? normalizedInputLanguage
+                : 'zh';
+        } else {
+            const envLanguage = process.env.OPENAI_TRANSCRIBE_LANG || '';
+            const languageCandidate = normalizedInputLanguage || envLanguage || 'en';
+            effectiveLanguage = String(languageCandidate).split('-')[0].toLowerCase();
+        }
+
         console.log(`[SttService] Initializing STT for ${modelInfo.provider} using model ${modelInfo.model}`);
 
         const handleMyMessage = message => {
@@ -170,26 +218,9 @@ class SttService {
                 // Whisper STT emits 'transcription' events with different structure
                 if (message.text && message.text.trim()) {
                     const finalText = message.text.trim();
-                    
-                    // Filter out Whisper noise transcriptions
-                    const noisePatterns = [
-                        '[BLANK_AUDIO]',
-                        '[INAUDIBLE]',
-                        '[MUSIC]',
-                        '[SOUND]',
-                        '[NOISE]',
-                        '(BLANK_AUDIO)',
-                        '(INAUDIBLE)',
-                        '(MUSIC)',
-                        '(SOUND)',
-                        '(NOISE)'
-                    ];
-                    
-                    const isNoise = noisePatterns.some(pattern => 
-                        finalText.includes(pattern) || finalText === pattern
-                    );
-                    
-                    
+
+                    const isNoise = this.isWhisperNoiseText(finalText);
+
                     if (!isNoise && finalText.length > 2) {
                         this.debounceMyCompletion(finalText);
                         
@@ -203,6 +234,30 @@ class SttService {
                     } else {
                         console.log(`[Whisper-Me] Filtered noise: "${finalText}"`);
                     }
+                }
+                return;
+            } else if (this.modelInfo.provider === 'funasr') {
+                const text = (message.text || '').trim();
+                if (!text) return;
+
+                const isFinal = message.isFinal !== false;
+                if (isFinal) {
+                    this.myCurrentUtterance = '';
+                    this.debounceMyCompletion(text);
+                } else {
+                    if (this.myCompletionTimer) clearTimeout(this.myCompletionTimer);
+                    this.myCompletionTimer = null;
+
+                    this.myCurrentUtterance = text;
+                    const continuousText = (this.myCompletionBuffer + ' ' + this.myCurrentUtterance).trim();
+
+                    this.sendToRenderer('stt-update', {
+                        speaker: 'Me',
+                        text: continuousText,
+                        isPartial: true,
+                        isFinal: false,
+                        timestamp: Date.now(),
+                    });
                 }
                 return;
             } else if (this.modelInfo.provider === 'gemini') {
@@ -311,26 +366,9 @@ class SttService {
                 // Whisper STT emits 'transcription' events with different structure
                 if (message.text && message.text.trim()) {
                     const finalText = message.text.trim();
-                    
-                    // Filter out Whisper noise transcriptions
-                    const noisePatterns = [
-                        '[BLANK_AUDIO]',
-                        '[INAUDIBLE]',
-                        '[MUSIC]',
-                        '[SOUND]',
-                        '[NOISE]',
-                        '(BLANK_AUDIO)',
-                        '(INAUDIBLE)',
-                        '(MUSIC)',
-                        '(SOUND)',
-                        '(NOISE)'
-                    ];
-                    
-                    const isNoise = noisePatterns.some(pattern => 
-                        finalText.includes(pattern) || finalText === pattern
-                    );
-                    
-                    
+
+                    const isNoise = this.isWhisperNoiseText(finalText);
+
                     // Only process if it's not noise, not a false positive, and has meaningful content
                     if (!isNoise && finalText.length > 2) {
                         this.debounceTheirCompletion(finalText);
@@ -345,6 +383,30 @@ class SttService {
                     } else {
                         console.log(`[Whisper-Them] Filtered noise: "${finalText}"`);
                     }
+                }
+                return;
+            } else if (this.modelInfo.provider === 'funasr') {
+                const text = (message.text || '').trim();
+                if (!text) return;
+
+                const isFinal = message.isFinal !== false;
+                if (isFinal) {
+                    this.theirCurrentUtterance = '';
+                    this.debounceTheirCompletion(text);
+                } else {
+                    if (this.theirCompletionTimer) clearTimeout(this.theirCompletionTimer);
+                    this.theirCompletionTimer = null;
+
+                    this.theirCurrentUtterance = text;
+                    const continuousText = (this.theirCompletionBuffer + ' ' + this.theirCurrentUtterance).trim();
+
+                    this.sendToRenderer('stt-update', {
+                        speaker: 'Them',
+                        text: continuousText,
+                        isPartial: true,
+                        isFinal: false,
+                        timestamp: Date.now(),
+                    });
                 }
                 return;
             } else if (this.modelInfo.provider === 'gemini') {
@@ -514,7 +576,7 @@ class SttService {
      * Gracefully tears down then recreates the STT sessions. Should be invoked
      * on a timer to avoid provider-side hard timeouts.
      */
-    async renewSessions(language = 'en') {
+    async renewSessions(language) {
         if (!this.isSessionActive()) {
             console.warn('[SttService] renewSessions called but no active session.');
             return;

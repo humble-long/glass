@@ -152,6 +152,15 @@ contextBridge.exposeInMainWorld('api', {
     
     // Message Handling
     sendMessage: (text) => ipcRenderer.invoke('ask:sendQuestionFromAsk', text),
+    
+    // Screenshot Management
+    captureScreenshot: () => ipcRenderer.invoke('ask:captureScreenshot'),
+    getScreenshotCount: () => ipcRenderer.invoke('ask:getScreenshotCount'),
+    clearScreenshots: () => ipcRenderer.invoke('ask:clearScreenshots'),
+    getScreenshotHistory: () => ipcRenderer.invoke('ask:getScreenshotHistory'),
+
+    // State Management
+    getState: () => ipcRenderer.invoke('ask:getState'),
 
     // Listeners
     onAskStateUpdate: (callback) => ipcRenderer.on('ask:stateUpdate', callback),
@@ -182,6 +191,10 @@ contextBridge.exposeInMainWorld('api', {
 
   // src/ui/listen/stt/SttView.js
   sttView: {
+    // Actions
+    sendQuestionFromTranscript: (sentence) => ipcRenderer.invoke('ask:sendQuestionFromSummary', sentence),
+    answerFromTranscript: (sentence) => ipcRenderer.invoke('listen:answerFromTranscript', sentence),
+
     // Listeners
     onSttUpdate: (callback) => ipcRenderer.on('stt-update', callback),
     removeOnSttUpdate: (callback) => ipcRenderer.removeListener('stt-update', callback)
@@ -216,6 +229,8 @@ contextBridge.exposeInMainWorld('api', {
     saveApiKey: (key) => ipcRenderer.invoke('model:save-api-key', key),
     removeApiKey: (provider) => ipcRenderer.invoke('model:remove-api-key', provider),
     setSelectedModel: (data) => ipcRenderer.invoke('model:set-selected-model', data),
+    addCustomModel: (provider, modelName) => ipcRenderer.invoke('settings:add-custom-model', { provider, modelName }),
+    removeCustomModel: (provider, modelName) => ipcRenderer.invoke('settings:remove-custom-model', { provider, modelName }),
     
     // Ollama Management
     getOllamaStatus: () => ipcRenderer.invoke('ollama:get-status'),

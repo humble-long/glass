@@ -5,6 +5,7 @@ const authService = require('../common/services/authService');
 const sessionRepository = require('../common/repositories/session');
 const sttRepository = require('./stt/repositories');
 const internalBridge = require('../../bridge/internalBridge');
+const settingsService = require('../settings/settingsService');
 
 class ListenService {
     constructor() {
@@ -63,7 +64,16 @@ class ListenService {
                 case 'Listen':
                     console.log('[ListenService] changeSession to "Listen"');
                     internalBridge.emit('window:requestVisibility', { name: 'listen', visible: true });
-                    await this.initializeSession();
+                    {
+                        let preferredLanguage;
+                        try {
+                            const settings = await settingsService.getSettings();
+                            preferredLanguage = settings?.language;
+                        } catch (settingsError) {
+                            console.warn('[ListenService] Failed to load settings language, falling back to default:', settingsError.message);
+                        }
+                        await this.initializeSession(preferredLanguage);
+                    }
                     if (listenWindow && !listenWindow.isDestroyed()) {
                         listenWindow.webContents.send('session-state-changed', { isActive: true });
                     }
@@ -154,7 +164,7 @@ class ListenService {
         }
     }
 
-    async initializeSession(language = 'en') {
+    async initializeSession(language) {
         if (this.isInitializingSession) {
             console.log('Session initialization already in progress.');
             return false;
@@ -265,6 +275,10 @@ class ListenService {
 
     getConversationHistory() {
         return this.summaryService.getConversationHistory();
+    }
+
+    async generateAnswerFromTranscript(sentence) {
+        return await this.summaryService.generateAnswerFromSelectedSentence(sentence);
     }
 
     _createHandler(asyncFn, successMessage, errorMessage) {

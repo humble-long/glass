@@ -119,7 +119,7 @@ function convertMessagesToOllamaFormat(messages) {
 function createLLM({ 
     model, 
     temperature = 0.7, 
-    maxTokens = 2048, 
+    maxTokens = 8192, 
     baseUrl = 'http://localhost:11434',
     ...config 
 }) {
@@ -230,7 +230,7 @@ function createLLM({
 function createStreamingLLM({ 
     model, 
     temperature = 0.7, 
-    maxTokens = 2048, 
+    maxTokens = 8192, 
     baseUrl = 'http://localhost:11434',
     ...config 
 }) {

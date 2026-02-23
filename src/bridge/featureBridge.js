@@ -23,6 +23,8 @@ module.exports = {
     ipcMain.handle('settings:get-model-settings', async () => await settingsService.getModelSettings());
     ipcMain.handle('settings:clear-api-key', async (e, { provider }) => await settingsService.clearApiKey(provider));
     ipcMain.handle('settings:set-selected-model', async (e, { type, modelId }) => await settingsService.setSelectedModel(type, modelId));    
+    ipcMain.handle('settings:add-custom-model', async (e, { provider, modelName }) => await settingsService.addCustomModel(provider, modelName));
+    ipcMain.handle('settings:remove-custom-model', async (e, { provider, modelName }) => await settingsService.removeCustomModel(provider, modelName));
 
     ipcMain.handle('settings:get-ollama-status', async () => await settingsService.getOllamaStatus());
     ipcMain.handle('settings:ensure-ollama-ready', async () => await settingsService.ensureOllamaReady());
@@ -83,6 +85,11 @@ module.exports = {
     ipcMain.handle('ask:sendQuestionFromSummary', async (event, userPrompt) => await askService.sendMessage(userPrompt));
     ipcMain.handle('ask:toggleAskButton', async () => await askService.toggleAskButton());
     ipcMain.handle('ask:closeAskWindow',  async () => await askService.closeAskWindow());
+    ipcMain.handle('ask:captureScreenshot', async () => await askService.captureScreenshotManually());
+    ipcMain.handle('ask:getScreenshotCount', async () => askService.getScreenshotCount());
+    ipcMain.handle('ask:clearScreenshots', async () => askService.clearScreenshots());
+    ipcMain.handle('ask:getScreenshotHistory', async () => askService.getScreenshotHistory());
+    ipcMain.handle('ask:getState', async () => askService.getState());
     
     // Listen
     ipcMain.handle('listen:sendMicAudio', async (event, { data, mimeType }) => await listenService.handleSendMicAudioContent(data, mimeType));
@@ -97,6 +104,7 @@ module.exports = {
     ipcMain.handle('listen:stopMacosSystemAudio', async () => await listenService.handleStopMacosAudio());
     ipcMain.handle('update-google-search-setting', async (event, enabled) => await listenService.handleUpdateGoogleSearchSetting(enabled));
     ipcMain.handle('listen:isSessionActive', async () => await listenService.isSessionActive());
+    ipcMain.handle('listen:answerFromTranscript', async (event, sentence) => await listenService.generateAnswerFromTranscript(sentence));
     ipcMain.handle('listen:changeSession', async (event, listenButtonText) => {
       console.log('[FeatureBridge] listen:changeSession from mainheader', listenButtonText);
       try {
@@ -109,7 +117,7 @@ module.exports = {
     });
 
     // ModelStateService
-    ipcMain.handle('model:validate-key', async (e, { provider, key }) => await modelStateService.handleValidateKey(provider, key));
+    ipcMain.handle('model:validate-key', async (e, { provider, key, config }) => await modelStateService.handleValidateKey(provider, key, config));
     ipcMain.handle('model:get-all-keys', async () => await modelStateService.getAllApiKeys());
     ipcMain.handle('model:set-api-key', async (e, { provider, key }) => await modelStateService.setApiKey(provider, key));
     ipcMain.handle('model:remove-api-key', async (e, provider) => await modelStateService.handleRemoveApiKey(provider));
